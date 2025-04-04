@@ -1,12 +1,8 @@
 # HeAR Notebooks
 
-*   Quick start with Hugging Face -
+*   [Quick start with Hugging Face](quick_start_with_hugging_face.ipynb) -
     Example of encoding a health-related audio clip into an
-    embedding vector by running the model locally from Hugging Face. There are
-    different versions of this notebook for the following model formats:
-
-    * [TensorFlow](quick_start_with_hugging_face.ipynb)
-    * [PyTorch](quick_start_with_hugging_face_pytorch.ipynb)
+    embedding vector by running the model locally from Hugging Face.
 
 *   [Quick start with Vertex Model Garden](quick_start_with_model_garden.ipynb) -
     Example of serving the model on
