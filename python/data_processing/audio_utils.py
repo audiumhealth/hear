@@ -463,7 +463,10 @@ def preprocess_audio(audio: torch.Tensor) -> torch.Tensor:
     raise ValueError(
         f'Input audio must have rank 2, got rank {audio.ndim}'
     )
-  if audio.shape[1] != 32000:
+  if audio.shape[1] < 32000:
+    n = 32000 - audio.shape[1]
+    audio = torch.nn.functional.pad(audio, pad=(0, n), mode='constant', value=0)
+  elif audio.shape[1] > 32000:
     raise ValueError(
         f'Input audio must have 32000 samples, got {audio.shape[1]}'
     )
