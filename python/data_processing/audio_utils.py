@@ -18,13 +18,15 @@
 import math
 from typing import Callable
 
+import numpy as np
+from scipy import signal
 import torch
 import torch.nn.functional as F
 
 
 def _enclosing_power_of_two(value: int) -> int:
   """Calculates the smallest power of 2 greater than or equal to `value`."""
-  return int(2**math.ceil(math.log2(value))) if value > 0 else 1
+  return int(2 ** math.ceil(math.log2(value))) if value > 0 else 1
 
 
 def _compute_stft(
@@ -90,9 +92,7 @@ def _compute_stft(
         if n_frames > 0
         else frame_length
     )
-    padding_needed = max(
-        0, padded_length - signals.shape[-1]
-    )
+    padding_needed = max(0, padded_length - signals.shape[-1])
     if padding_needed > 0:
       signals = F.pad(signals, (0, padding_needed))
 
@@ -130,8 +130,8 @@ def _ema(
   """Exponential Moving Average (EMA).
 
   Args:
-    inputs: A 3D tensor of shape (batch_size, timesteps, input_dim).
-      This is the input sequence to the EMA RNN.
+    inputs: A 3D tensor of shape (batch_size, timesteps, input_dim). This is the
+      input sequence to the EMA RNN.
     num_channels: The number of channels/units in the EMA.
     smooth_coef: The smoothing coefficient (alpha) for the EMA.
     initial_state: (Optional) A 2D tensor of shape (batch_size, num_channels)
@@ -232,9 +232,10 @@ def _pcen_function(
       initial_state=inputs[:, 0] if inputs.ndim > 1 else None,
   )
 
-  one_over_root = 1. / root_param
-  output = ((inputs / (floor + ema_smoother)**alpha_param + delta_param)
-            **one_over_root - delta_param**one_over_root)
+  one_over_root = 1.0 / root_param
+  output = (
+      inputs / (floor + ema_smoother) ** alpha_param + delta_param
+  ) ** one_over_root - delta_param**one_over_root
   return output
 
 
@@ -268,8 +269,8 @@ def _linear_to_mel_weight_matrix(
 
   Args:
     num_mel_bins: How many bands in the resulting mel spectrum.
-    num_spectrogram_bins: How many bins there are in the
-      source spectrogram data.
+    num_spectrogram_bins: How many bins there are in the source spectrogram
+      data.
     sample_rate: Samples per second of the input signal used to create the
       spectrogram.
     lower_edge_hertz: Lower bound on the frequencies to be included in the mel
@@ -319,7 +320,8 @@ def _linear_to_mel_weight_matrix(
   bands_to_zero = 1
   nyquist_hertz = sample_rate_tensor / 2.0
   linear_frequencies = torch.linspace(
-      zero, nyquist_hertz, num_spectrogram_bins, dtype=dtype)[bands_to_zero:]
+      zero, nyquist_hertz, num_spectrogram_bins, dtype=dtype
+  )[bands_to_zero:]
   spectrogram_bins_mel = _hertz_to_mel(linear_frequencies).unsqueeze(1)
 
   # Compute num_mel_bins triples of (lower_edge, center, upper_edge).
@@ -329,7 +331,9 @@ def _linear_to_mel_weight_matrix(
   band_edges_mel = torch.linspace(
       _hertz_to_mel(lower_edge_hertz_tensor),
       _hertz_to_mel(upper_edge_hertz_tensor),
-      num_mel_bins + 2, dtype=dtype)
+      num_mel_bins + 2,
+      dtype=dtype,
+  )
   # Create frames of size 3 with stride 1
   band_edges_mel = band_edges_mel.unfold(0, 3, 1)
 
@@ -341,20 +345,24 @@ def _linear_to_mel_weight_matrix(
   # Calculate lower and upper slopes for every spectrogram bin.
   # Line segments are linear in the mel domain, not Hertz.
   lower_slopes = (spectrogram_bins_mel - lower_edge_mel) / (
-      center_mel - lower_edge_mel)
+      center_mel - lower_edge_mel
+  )
   upper_slopes = (upper_edge_mel - spectrogram_bins_mel) / (
-      upper_edge_mel - center_mel)
+      upper_edge_mel - center_mel
+  )
 
   # Intersect the line segments with each other and zero.
   mel_weights_matrix = torch.maximum(
-      zero, torch.minimum(lower_slopes, upper_slopes))
+      zero, torch.minimum(lower_slopes, upper_slopes)
+  )
 
   # Re-add the zeroed lower bins we sliced out above.
   return F.pad(
-      mel_weights_matrix, (0, 0, bands_to_zero, 0), mode='constant', value=0.0)
+      mel_weights_matrix, (0, 0, bands_to_zero, 0), mode='constant', value=0.0
+  )
 
 
-def mel_pcen(
+def _mel_pcen(
     x: torch.Tensor,
 ) -> torch.Tensor:
   """Melspec followed by pcen."""
@@ -380,3 +388,118 @@ def mel_pcen(
   mel_transform = _linear_to_mel_weight_matrix()
   mel_spectrograms = torch.matmul(spectrograms, mel_transform)
   return _pcen_function(mel_spectrograms)
+
+
+def _torch_resize_bilinear_tf_compat(images, size):
+  """PyTorch implementation of tf.image.resize.
+
+  Internally matches the numerical output of:
+  ```
+    tf.image.resize(
+        # TF input needs HWC/BHWC format
+        tf_permuted_input,
+        size,
+        method=tf.image.ResizeMethod.BILINEAR,
+        preserve_aspect_ratio=False,
+        antialias=False
+    )
+  ```
+
+  Args:
+      images: Input tensor, shape [C, H, W] or [B, C, H, W]. Should be float32
+        or convertible to float32 for numerical matching.
+      size: Target size as [new_height, new_width].
+
+  Returns:
+      Resized tensor, shape [C, new_H, new_W] or [B, C, new_H, new_W], dtype
+        torch.float32.
+  """
+  original_dims = images.dim()
+  new_height, new_width = size
+
+  if original_dims not in [3, 4]:
+    raise ValueError('Input tensor must be 3D [C, H, W] or 4D [B, C, H, W]')
+
+  if len(size) != 2:
+    raise ValueError(
+        'size must be a tuple or list of 2 integers (new_height, new_width)'
+    )
+
+  images = images.to(torch.float32)
+
+  was_3d = False
+  if original_dims == 3:
+    images = images.unsqueeze(0)  # Shape: [1, C, H, W]
+    was_3d = True
+
+  resized_images_bchw = F.interpolate(
+      images,  # Shape: [B, C, H, W]
+      size=(new_height, new_width),
+      mode='bilinear',
+      align_corners=False,
+      antialias=False,
+  )
+  # Output shape: [B, C, new_H, new_W]
+
+  # Remove batch dimension if original input was 3D (1CNHWC -> CNHWC)
+  if was_3d:
+    # Shape: [C, new_H, new_W]
+    resized_images_bchw = resized_images_bchw.squeeze(0)
+
+  return resized_images_bchw
+
+
+def preprocess_audio(audio: torch.Tensor) -> torch.Tensor:
+  """Preprocesses audio.
+
+  Args:
+    audio: A `[..., samples]` `torch.Tensor` of real-valued signals. Represents
+      batched audio clips of duration 2s sampled at 16kHz.
+
+  Returns:
+    A `[..., 1, 192, 128]` `torch.Tensor` of mel-pcen values.
+  """
+  if audio.ndim != 2:
+    raise ValueError(
+        f'Input audio must have rank 2, got rank {audio.ndim}'
+    )
+  if audio.shape[1] != 32000:
+    raise ValueError(
+        f'Input audio must have 32000 samples, got {audio.shape[1]}'
+    )
+  spectrogram = _mel_pcen(audio)
+  # Add a channel dimension. Torch images have format [B, C, H, W].
+  spectrogram = torch.unsqueeze(spectrogram, dim=1)
+  return _torch_resize_bilinear_tf_compat(spectrogram, size=(192, 128))
+
+
+def resample_audio_and_convert_to_mono(
+    audio_array: np.ndarray,
+    sampling_rate: float,
+    new_sampling_rate: float,
+) -> np.ndarray:
+  """Resamples an audio array to 16kHz and converts it to mono.
+
+  Args:
+    audio_array: A numpy array representing the audio data.
+    sampling_rate: The original sampling rate of the audio.
+    new_sampling_rate: Target sampling rate.
+
+  Returns:
+    resampled_audio_mono: A numpy array representing the resampled mono audio at
+    16kHz.
+  """
+  # Convert to mono if it's multi-channel
+  if audio_array.ndim > 1:
+    audio_mono = np.mean(audio_array, axis=1)
+  else:
+    audio_mono = audio_array
+
+  # Resample
+  original_sample_count = audio_mono.shape[0]
+  new_sample_count = int(
+      round(original_sample_count * (new_sampling_rate / sampling_rate))
+  )
+  resampled_audio_mono = signal.resample(audio_mono, new_sample_count)
+
+  return resampled_audio_mono
