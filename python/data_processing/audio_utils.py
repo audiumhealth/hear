@@ -214,6 +214,7 @@ def _pcen_function(
   delta_param = torch.ones(num_channels) * delta
   root_param = torch.ones(num_channels) * root
 
+  delta_param = delta_param.to(inputs.device).to(inputs.dtype)
   alpha_param = (
       torch.minimum(alpha_param, torch.ones_like(alpha_param))
       .to(inputs.device)
@@ -230,7 +231,7 @@ def _pcen_function(
       smooth_coef=smooth_coef,
       # Handle cases where input is 2D or 3D
       initial_state=inputs[:, 0] if inputs.ndim > 1 else None,
-  )
+  ).to(inputs.device)
 
   one_over_root = 1.0 / root_param
   output = (
@@ -254,6 +255,7 @@ def _hertz_to_mel(frequencies_hertz: torch.Tensor) -> torch.Tensor:
 
 
 def _linear_to_mel_weight_matrix(
+    device: torch.device,
     num_mel_bins: int = 128,
     num_spectrogram_bins: int = 201,
     sample_rate: float = 16000,
@@ -268,6 +270,7 @@ def _linear_to_mel_weight_matrix(
   https://www.tensorflow.org/api_docs/python/tf/signal/linear_to_mel_weight_matrix
 
   Args:
+    device: The device to use for the result matrix.
     num_mel_bins: How many bands in the resulting mel spectrum.
     num_spectrogram_bins: How many bins there are in the source spectrogram
       data.
@@ -312,15 +315,19 @@ def _linear_to_mel_weight_matrix(
     )
 
   sample_rate_tensor = torch.tensor(sample_rate, dtype=dtype)
-  lower_edge_hertz_tensor = torch.tensor(lower_edge_hertz, dtype=dtype)
-  upper_edge_hertz_tensor = torch.tensor(upper_edge_hertz, dtype=dtype)
-  zero = torch.tensor(0.0, dtype=dtype)
+  lower_edge_hertz_tensor = torch.tensor(
+      lower_edge_hertz, dtype=dtype, device=device
+  )
+  upper_edge_hertz_tensor = torch.tensor(
+      upper_edge_hertz, dtype=dtype, device=device
+  )
+  zero = torch.tensor(0.0, dtype=dtype, device=device)
 
   # HTK excludes the spectrogram DC bin.
   bands_to_zero = 1
   nyquist_hertz = sample_rate_tensor / 2.0
   linear_frequencies = torch.linspace(
-      zero, nyquist_hertz, num_spectrogram_bins, dtype=dtype
+      zero, nyquist_hertz, num_spectrogram_bins, dtype=dtype, device=device
   )[bands_to_zero:]
   spectrogram_bins_mel = _hertz_to_mel(linear_frequencies).unsqueeze(1)
 
@@ -333,6 +340,7 @@ def _linear_to_mel_weight_matrix(
       _hertz_to_mel(upper_edge_hertz_tensor),
       num_mel_bins + 2,
       dtype=dtype,
+      device=device,
   )
   # Create frames of size 3 with stride 1
   band_edges_mel = band_edges_mel.unfold(0, 3, 1)
@@ -385,7 +393,7 @@ def _mel_pcen(
   )
   spectrograms = torch.square(torch.abs(stft))
 
-  mel_transform = _linear_to_mel_weight_matrix()
+  mel_transform = _linear_to_mel_weight_matrix(x.device)
   mel_spectrograms = torch.matmul(spectrograms, mel_transform)
   return _pcen_function(mel_spectrograms)
 
