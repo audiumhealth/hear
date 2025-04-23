@@ -17,3 +17,7 @@
 *   [Train a data efficient classifier](train_data_efficient_classifier.ipynb) -
     Example of using the generated embeddings to train a custom classifier with
     less data and compute.
+
+*   [Health event detector demo](hear_event_detector_demo.ipynb) - Example of
+    using HeAR with the health event detector models to first identify and then
+    generate embeddings for health-related sounds like coughing and breathing.
