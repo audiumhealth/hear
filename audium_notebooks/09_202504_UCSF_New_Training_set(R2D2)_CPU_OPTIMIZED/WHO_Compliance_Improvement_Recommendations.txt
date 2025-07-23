@@ -1,0 +1,776 @@
+WHO TB SCREENING COMPLIANCE IMPROVEMENT RECOMMENDATIONS
+========================================================
+
+Generated: 2025-07-22
+Target: ≥90% Sensitivity, ≥70% Specificity (WHO Standards)
+Current Pipeline: GPU-Optimized HeAR Embeddings TB Detection
+
+TABLE OF CONTENTS
+=================
+1. EXECUTIVE SUMMARY
+2. IMMEDIATE ACTIONS (Quick Wins)
+3. DATA-LEVEL IMPROVEMENTS
+4. MODEL ARCHITECTURE ENHANCEMENTS
+5. ADVANCED LOSS FUNCTIONS
+6. CLINICAL DOMAIN INTEGRATION
+7. IMPLEMENTATION ROADMAP
+8. EXPECTED PERFORMANCE GAINS
+9. CODE IMPLEMENTATIONS
+
+
+1. EXECUTIVE SUMMARY
+===================
+
+Current Challenge:
+- Need to achieve WHO TB screening standards (≥90% sensitivity, ≥70% specificity)
+- Improve ROC-AUC performance for better discrimination
+- Maintain clinical utility while maximizing patient safety
+
+Key Strategy:
+- Prioritize sensitivity (patient safety) while maintaining acceptable specificity
+- Implement multi-pronged approach: data, models, and training optimization
+- Focus on asymmetric costs where missing TB cases is more critical than false alarms
+
+Recommended Priority:
+1. Threshold optimization and ensemble methods (immediate impact)
+2. Advanced loss functions and model architectures (medium-term)
+3. Feature engineering and clinical integration (long-term)
+
+
+2. IMMEDIATE ACTIONS (Quick Wins)
+================================
+
+A. THRESHOLD OPTIMIZATION
+-------------------------
+- Current: Using 0.5 default threshold
+- Recommendation: Optimize thresholds specifically for WHO compliance
+- Expected gain: +5-10% sensitivity, minimal specificity loss
+- Implementation effort: LOW (1-2 hours)
+
+def optimize_who_threshold(y_true, y_scores):
+    thresholds = np.linspace(0, 1, 1000)
+    for threshold in thresholds:
+        y_pred = (y_scores >= threshold).astype(int)
+        sens = sensitivity_score(y_true, y_pred)
+        spec = specificity_score(y_true, y_pred)
+        if sens >= 0.9 and spec >= 0.7:
+            return threshold
+
+B. ENSEMBLE OPTIMIZATION
+------------------------
+- Current: Individual model evaluation
+- Recommendation: Weighted ensemble prioritizing sensitivity
+- Method: Weight models by WHO compliance scores
+- Expected gain: +3-7% sensitivity, +2-5% specificity
+- Implementation effort: LOW-MEDIUM (2-4 hours)
+
+# Ensemble with sensitivity weighting
+weights = [model.sensitivity_score * 2 + model.specificity_score for model in models]
+ensemble_pred = weighted_average(predictions, weights)
+
+C. CLASS WEIGHT ADJUSTMENT
+--------------------------
+- Current: Balanced class weights
+- Recommendation: Asymmetric weighting favoring TB detection
+- Ratio: 3:1 or 4:1 (TB:Non-TB)
+- Expected gain: +5-8% sensitivity, -2-4% specificity
+- Implementation effort: LOW (30 minutes)
+
+
+3. DATA-LEVEL IMPROVEMENTS
+==========================
+
+A. AUDIO PREPROCESSING ENHANCEMENTS
+-----------------------------------
+Priority: HIGH
+Expected Impact: +5-15% sensitivity, +3-8% specificity
+
+1. Advanced Noise Reduction:
+   - Spectral subtraction for background noise
+   - Wiener filtering for stationary noise
+   - Adaptive filtering for non-stationary environments
+
+2. Audio Normalization:
+   - RMS normalization for consistent loudness
+   - Dynamic range compression
+   - Frequency domain equalization
+
+3. Silence Detection Improvement:
+   - Current: -50dB threshold
+   - Recommendation: Adaptive VAD (Voice Activity Detection)
+   - Multiple threshold levels for different environments
+
+B. DATA AUGMENTATION STRATEGY
+-----------------------------
+Priority: MEDIUM-HIGH
+Expected Impact: +3-10% sensitivity, +2-6% specificity
+
+1. Audio-Specific Augmentation:
+   - Time stretching (±10-20%)
+   - Pitch shifting (±2 semitones)
+   - Background noise injection (clinical environments)
+   - Speed perturbation (90-110% original speed)
+
+2. Synthetic Sample Generation:
+   - SMOTE variants: BorderlineSMOTE, ADASYN
+   - GAN-based audio generation (advanced)
+   - Mixup augmentation for audio spectrograms
+
+C. FEATURE COMBINATION
+---------------------
+Priority: MEDIUM
+Expected Impact: +5-12% sensitivity, +4-9% specificity
+
+1. Multi-Modal Features:
+   - HeAR embeddings (current 512-dim)
+   - MFCC features (13 coefficients)
+   - Mel-spectrogram features
+   - Chroma and spectral features
+
+2. Temporal Features:
+   - Cough phase detection (explosive, intermediate, recovery)
+   - Duration-based features
+   - Inter-cough interval analysis
+
+
+4. MODEL ARCHITECTURE ENHANCEMENTS
+==================================
+
+A. ADVANCED GRADIENT BOOSTING
+-----------------------------
+Priority: HIGH
+Expected Impact: +8-15% sensitivity, +5-10% specificity
+Implementation effort: MEDIUM (4-8 hours)
+
+Replace XGBoost with:
+1. CatBoost: Better handling of categorical features, built-in regularization
+2. LightGBM: Faster training, better memory efficiency
+3. NGBoost: Probabilistic predictions with uncertainty quantification
+
+Configuration example:
+import catboost as cb
+model = cb.CatBoostClassifier(
+    iterations=1000,
+    learning_rate=0.1,
+    depth=8,
+    loss_function='Logloss',
+    class_weights=[1, 3],  # Favor TB detection
+    bootstrap_type='Bernoulli',
+    subsample=0.8,
+    random_seed=42
+)
+
+B. NEURAL NETWORK IMPROVEMENTS
+------------------------------
+Priority: MEDIUM-HIGH
+Expected Impact: +6-12% sensitivity, +4-8% specificity
+
+Current MLP: [512 → 100 → 50 → 1]
+
+Recommended architectures:
+1. Deeper Network: [512 → 256 → 128 → 64 → 32 → 1]
+2. Wide Network: [512 → 300 → 150 → 1]
+3. Residual Connections: Skip connections for better gradient flow
+4. Attention Mechanism: Focus on discriminative features
+
+class ImprovedMLP(nn.Module):
+    def __init__(self, input_dim=512):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            
+            nn.Linear(64, 1),
+            nn.Sigmoid()
+        )
+
+C. ENSEMBLE METHODS
+------------------
+Priority: MEDIUM
+Expected Impact: +4-10% sensitivity, +3-7% specificity
+
+1. Stacking Ensemble:
+   - Level 1: Multiple diverse models (CatBoost, LightGBM, MLP)
+   - Level 2: Meta-learner (Logistic Regression with WHO-optimized weights)
+
+2. Bayesian Model Averaging:
+   - Account for model uncertainty
+   - Weight models by posterior probability
+
+3. Dynamic Ensemble:
+   - Different models for different patient populations
+   - Age-based, symptom-based model selection
+
+
+5. ADVANCED LOSS FUNCTIONS
+==========================
+
+A. WHO-OPTIMIZED LOSS (HIGHEST PRIORITY)
+----------------------------------------
+Expected Impact: +8-15% sensitivity, +3-8% specificity
+Implementation: Replace standard BCE loss
+
+def who_compliant_loss(y_true, y_pred, sens_weight=3.0, spec_weight=1.0):
+    """Custom loss optimized for WHO TB screening compliance"""
+    bce_loss = F.binary_cross_entropy(y_pred, y_true)
+    
+    # Calculate batch-level metrics
+    y_pred_binary = (y_pred > 0.5).float()
+    tp = torch.sum(y_true * y_pred_binary)
+    fn = torch.sum(y_true * (1 - y_pred_binary))
+    tn = torch.sum((1 - y_true) * (1 - y_pred_binary))
+    fp = torch.sum((1 - y_true) * y_pred_binary)
+    
+    eps = 1e-7
+    sensitivity = tp / (tp + fn + eps)
+    specificity = tn / (tn + fp + eps)
+    
+    # Penalty for WHO non-compliance
+    sens_penalty = torch.relu(0.9 - sensitivity) * sens_weight
+    spec_penalty = torch.relu(0.7 - specificity) * spec_weight
+    
+    return bce_loss + sens_penalty + spec_penalty
+
+B. FOCAL LOSS FOR HARD EXAMPLES
+-------------------------------
+Expected Impact: +5-12% sensitivity, +2-6% specificity
+Use Case: When many easy negatives dominate training
+
+def focal_loss_tb(y_true, y_pred, alpha=0.25, gamma=2.0):
+    """Focal Loss adapted for TB detection"""
+    ce_loss = F.binary_cross_entropy(y_pred, y_true, reduction='none')
+    pt = torch.exp(-ce_loss)
+    focal_loss = alpha * (1 - pt) ** gamma * ce_loss
+    
+    # Extra weight for TB cases to boost sensitivity
+    tb_weight = torch.where(y_true == 1, 2.0, 1.0)
+    return torch.mean(focal_loss * tb_weight)
+
+C. ASYMMETRIC LOSS FOR MEDICAL APPLICATIONS
+-------------------------------------------
+Expected Impact: +10-20% sensitivity, -1-3% specificity
+Use Case: When false negatives are much more costly than false positives
+
+def asymmetric_loss(y_true, y_pred, fn_weight=4.0, fp_weight=1.0):
+    """Heavily penalize false negatives (missed TB cases)"""
+    pos_loss = y_true * torch.pow(1 - y_pred, 2) * torch.log(y_pred + 1e-8)
+    neg_loss = (1 - y_true) * torch.pow(y_pred, 2) * torch.log(1 - y_pred + 1e-8)
+    
+    weighted_loss = -(fn_weight * pos_loss + fp_weight * neg_loss)
+    return torch.mean(weighted_loss)
+
+D. AUC-MAXIMIZING LOSS
+---------------------
+Expected Impact: +3-8% sensitivity, +3-8% specificity, +0.05-0.10 ROC-AUC
+Use Case: Direct optimization of discrimination ability
+
+def auc_maximizing_loss(y_true, y_pred):
+    """Directly optimize ROC-AUC using pairwise ranking"""
+    pos_mask = (y_true == 1)
+    neg_mask = (y_true == 0)
+    
+    pos_scores = y_pred[pos_mask].unsqueeze(1)
+    neg_scores = y_pred[neg_mask].unsqueeze(0)
+    
+    # All positive vs negative pairs
+    score_diff = pos_scores - neg_scores
+    ranking_loss = torch.sigmoid(-score_diff)
+    
+    return torch.mean(ranking_loss)
+
+
+6. CLINICAL DOMAIN INTEGRATION
+==============================
+
+A. WHO-SPECIFIC EVALUATION METRICS
+----------------------------------
+Priority: HIGH
+Implementation: Add to evaluation pipeline
+
+def evaluate_who_compliance(y_true, y_pred_proba, thresholds=None):
+    """Comprehensive WHO compliance evaluation"""
+    if thresholds is None:
+        thresholds = np.linspace(0, 1, 1000)
+    
+    results = []
+    for threshold in thresholds:
+        y_pred = (y_pred_proba >= threshold).astype(int)
+        
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+        
+        who_compliant = (sensitivity >= 0.9) and (specificity >= 0.7)
+        who_score = min(sensitivity, specificity) if who_compliant else 0
+        
+        results.append({
+            'threshold': threshold,
+            'sensitivity': sensitivity,
+            'specificity': specificity,
+            'who_compliant': who_compliant,
+            'who_score': who_score,
+            'precision': tp / (tp + fp) if (tp + fp) > 0 else 0,
+            'npv': tn / (tn + fn) if (tn + fn) > 0 else 0
+        })
+    
+    return pd.DataFrame(results)
+
+B. CLINICAL COST MODELING
+-------------------------
+Priority: MEDIUM
+Expected Impact: Better real-world performance alignment
+
+# Clinical cost matrix (example values)
+CLINICAL_COSTS = {
+    'true_positive': 0,      # Correct TB detection
+    'true_negative': 0,      # Correct non-TB
+    'false_positive': 100,   # Unnecessary treatment/anxiety
+    'false_negative': 1000   # Missed TB case - public health risk
+}
+
+def clinical_cost_loss(y_true, y_pred, cost_matrix=CLINICAL_COSTS):
+    """Loss function incorporating real clinical costs"""
+    y_pred_binary = (y_pred > 0.5).float()
+    
+    tp_cost = torch.sum(y_true * y_pred_binary) * cost_matrix['true_positive']
+    tn_cost = torch.sum((1 - y_true) * (1 - y_pred_binary)) * cost_matrix['true_negative']
+    fp_cost = torch.sum((1 - y_true) * y_pred_binary) * cost_matrix['false_positive']
+    fn_cost = torch.sum(y_true * (1 - y_pred_binary)) * cost_matrix['false_negative']
+    
+    total_cost = (tp_cost + tn_cost + fp_cost + fn_cost) / y_true.size(0)
+    
+    # Combine with BCE for gradient stability
+    bce = F.binary_cross_entropy(y_pred, y_true)
+    return 0.7 * total_cost + 0.3 * bce
+
+C. PATIENT-LEVEL AGGREGATION
+----------------------------
+Priority: MEDIUM
+Expected Impact: More clinically relevant evaluation
+
+def patient_level_prediction(patient_embeddings, model, aggregation='majority_vote'):
+    """Aggregate multiple audio clips per patient"""
+    clip_predictions = model.predict_proba(patient_embeddings)[:, 1]
+    
+    if aggregation == 'majority_vote':
+        return (np.mean(clip_predictions) > 0.5).astype(int)
+    elif aggregation == 'max_confidence':
+        return np.max(clip_predictions)
+    elif aggregation == 'weighted_average':
+        # Weight by clip quality/confidence
+        weights = clip_predictions  # Higher confidence clips get more weight
+        return np.average(clip_predictions, weights=weights)
+    else:
+        return np.mean(clip_predictions)
+
+
+7. IMPLEMENTATION ROADMAP
+=========================
+
+PHASE 1: IMMEDIATE IMPROVEMENTS (Week 1-2)
+------------------------------------------
+Priority: Critical - Implement immediately
+Effort: Low-Medium
+Expected ROI: High
+
+Tasks:
+□ Implement threshold optimization for WHO compliance
+□ Add ensemble voting with sensitivity weighting
+□ Adjust class weights to favor TB detection (3:1 or 4:1 ratio)
+□ Add WHO-optimized loss function to MLP training
+□ Implement comprehensive WHO evaluation metrics
+
+Code changes:
+- Modify 03_tb_detection_gpu_optimized.py: Add threshold optimization
+- Update PyTorchMLPWrapper: Add loss_function parameter
+- Create who_evaluation_metrics.py: Comprehensive WHO assessment
+
+Expected outcome: +8-15% sensitivity, +3-8% specificity
+
+PHASE 2: MODEL ARCHITECTURE (Week 3-4)
+--------------------------------------
+Priority: High
+Effort: Medium
+Expected ROI: High-Medium
+
+Tasks:
+□ Implement CatBoost and LightGBM models
+□ Redesign MLP with deeper architecture and batch normalization
+□ Add focal loss and asymmetric loss options
+□ Implement stacking ensemble framework
+□ Add model calibration (Platt scaling, isotonic regression)
+
+Code changes:
+- Add catboost_models.py: CatBoost implementation
+- Update neural network architecture in PyTorchMLP class
+- Create ensemble_framework.py: Stacking and voting methods
+- Add calibration.py: Probability calibration methods
+
+Expected outcome: +10-20% sensitivity, +5-12% specificity
+
+PHASE 3: FEATURE ENGINEERING (Week 5-6)
+---------------------------------------
+Priority: Medium-High
+Effort: Medium-High
+Expected ROI: Medium-High
+
+Tasks:
+□ Implement advanced audio preprocessing pipeline
+□ Add MFCC and spectral feature extraction
+□ Implement SMOTE and advanced data augmentation
+□ Create multi-modal feature combination framework
+□ Add cough phase detection and temporal features
+
+Code changes:
+- Create audio_preprocessing.py: Advanced audio processing
+- Add feature_extraction.py: Multiple feature modalities
+- Update data loading pipeline: Integrated preprocessing
+- Create augmentation.py: Audio-specific augmentation methods
+
+Expected outcome: +8-18% sensitivity, +6-15% specificity
+
+PHASE 4: CLINICAL INTEGRATION (Week 7-8)
+----------------------------------------
+Priority: Medium
+Effort: High
+Expected ROI: Medium-Long term
+
+Tasks:
+□ Implement patient-level aggregation strategies
+□ Add clinical cost modeling to loss functions
+□ Integrate demographic and symptom information (if available)
+□ Implement uncertainty quantification
+□ Add explainability features (SHAP, LIME)
+
+Code changes:
+- Create patient_aggregation.py: Multi-clip patient predictions
+- Add clinical_costs.py: Cost-aware training and evaluation
+- Update evaluation framework: Clinical metrics and uncertainty
+- Add explainability.py: Model interpretation tools
+
+Expected outcome: +5-12% sensitivity, +4-10% specificity, better clinical adoption
+
+
+8. EXPECTED PERFORMANCE GAINS
+=============================
+
+CONSERVATIVE ESTIMATES (90% confidence)
+---------------------------------------
+Phase 1 (Immediate): 
+- Sensitivity: +5-10%
+- Specificity: +2-5%
+- ROC-AUC: +0.02-0.04
+- Timeline: 1-2 weeks
+
+Phase 2 (Architecture):
+- Sensitivity: +8-15% (cumulative)
+- Specificity: +4-8% (cumulative)
+- ROC-AUC: +0.04-0.08 (cumulative)
+- Timeline: 3-4 weeks
+
+Phase 3 (Features):
+- Sensitivity: +12-25% (cumulative)
+- Specificity: +8-15% (cumulative)
+- ROC-AUC: +0.08-0.15 (cumulative)
+- Timeline: 5-6 weeks
+
+Phase 4 (Clinical):
+- Sensitivity: +15-30% (cumulative)
+- Specificity: +10-20% (cumulative)
+- ROC-AUC: +0.10-0.20 (cumulative)
+- Timeline: 7-8 weeks
+
+OPTIMISTIC ESTIMATES (70% confidence)
+------------------------------------
+Full implementation could achieve:
+- Sensitivity: 85-95% (target: ≥90%)
+- Specificity: 75-85% (target: ≥70%)
+- ROC-AUC: 0.88-0.95
+- WHO Compliance Rate: 80-95%
+
+RISK MITIGATION
+---------------
+If gains are lower than expected:
+- Focus on sensitivity-first approaches (asymmetric loss, higher TB weights)
+- Implement ensemble of top-performing approaches
+- Consider domain-specific feature engineering
+- Investigate data quality issues and outliers
+
+
+9. CODE IMPLEMENTATIONS
+=======================
+
+A. IMMEDIATE IMPLEMENTATION: WHO-Optimized Training
+--------------------------------------------------
+
+# File: who_optimized_training.py
+import torch
+import torch.nn.functional as F
+import numpy as np
+from sklearn.metrics import confusion_matrix
+
+class WHOOptimizedTrainer:
+    def __init__(self, model, loss_type='who_optimized', sens_weight=3.0):
+        self.model = model
+        self.loss_type = loss_type
+        self.sens_weight = sens_weight
+    
+    def who_compliant_loss(self, y_true, y_pred):
+        bce_loss = F.binary_cross_entropy(y_pred, y_true)
+        
+        y_pred_binary = (y_pred > 0.5).float()
+        tp = torch.sum(y_true * y_pred_binary)
+        fn = torch.sum(y_true * (1 - y_pred_binary))
+        tn = torch.sum((1 - y_true) * (1 - y_pred_binary))
+        fp = torch.sum((1 - y_true) * y_pred_binary)
+        
+        eps = 1e-7
+        sensitivity = tp / (tp + fn + eps)
+        specificity = tn / (tn + fp + eps)
+        
+        sens_penalty = torch.relu(0.9 - sensitivity) * self.sens_weight
+        spec_penalty = torch.relu(0.7 - specificity) * 1.0
+        
+        return bce_loss + sens_penalty + spec_penalty
+    
+    def train_epoch(self, dataloader, optimizer):
+        self.model.train()
+        total_loss = 0
+        
+        for batch_x, batch_y in dataloader:
+            optimizer.zero_grad()
+            
+            y_pred = self.model(batch_x)
+            loss = self.who_compliant_loss(batch_y.float(), y_pred.squeeze())
+            
+            loss.backward()
+            optimizer.step()
+            
+            total_loss += loss.item()
+        
+        return total_loss / len(dataloader)
+
+B. THRESHOLD OPTIMIZATION IMPLEMENTATION
+---------------------------------------
+
+# File: threshold_optimization.py
+def optimize_who_threshold(y_true, y_scores, metric_weights=None):
+    """
+    Find optimal threshold for WHO compliance
+    """
+    if metric_weights is None:
+        metric_weights = {'sensitivity': 0.6, 'specificity': 0.4}
+    
+    thresholds = np.linspace(0, 1, 1000)
+    best_threshold = 0.5
+    best_score = 0
+    who_compliant_thresholds = []
+    
+    for threshold in thresholds:
+        y_pred = (y_scores >= threshold).astype(int)
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        
+        sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+        
+        # Check WHO compliance
+        if sensitivity >= 0.9 and specificity >= 0.7:
+            who_compliant_thresholds.append({
+                'threshold': threshold,
+                'sensitivity': sensitivity,
+                'specificity': specificity,
+                'who_score': min(sensitivity, specificity)
+            })
+            
+            # Calculate weighted score
+            score = (metric_weights['sensitivity'] * sensitivity + 
+                    metric_weights['specificity'] * specificity)
+            
+            if score > best_score:
+                best_score = score
+                best_threshold = threshold
+    
+    return {
+        'best_threshold': best_threshold,
+        'best_score': best_score,
+        'who_compliant_options': who_compliant_thresholds
+    }
+
+C. ENSEMBLE IMPLEMENTATION
+--------------------------
+
+# File: medical_ensemble.py
+class MedicalEnsemble:
+    def __init__(self, models, aggregation='who_weighted'):
+        self.models = models
+        self.aggregation = aggregation
+        self.model_weights = None
+    
+    def fit_weights(self, X_val, y_val):
+        """Fit ensemble weights based on WHO compliance"""
+        predictions = []
+        weights = []
+        
+        for model in self.models:
+            y_pred_proba = model.predict_proba(X_val)[:, 1]
+            y_pred = (y_pred_proba > 0.5).astype(int)
+            
+            # Calculate WHO compliance metrics
+            tn, fp, fn, tp = confusion_matrix(y_val, y_pred).ravel()
+            sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+            
+            # Weight based on sensitivity priority and WHO compliance
+            if sensitivity >= 0.9 and specificity >= 0.7:
+                weight = sensitivity * 2 + specificity  # Sensitivity priority
+            elif sensitivity >= 0.9:
+                weight = sensitivity * 1.5  # High sensitivity, acceptable spec
+            else:
+                weight = sensitivity + specificity  # Standard weighting
+            
+            predictions.append(y_pred_proba)
+            weights.append(weight)
+        
+        # Normalize weights
+        self.model_weights = np.array(weights) / np.sum(weights)
+        return self
+    
+    def predict_proba(self, X):
+        """Weighted ensemble prediction"""
+        if self.model_weights is None:
+            raise ValueError("Must call fit_weights first")
+        
+        predictions = []
+        for model in self.models:
+            predictions.append(model.predict_proba(X)[:, 1])
+        
+        # Weighted average
+        ensemble_proba = np.average(predictions, weights=self.model_weights, axis=0)
+        return np.column_stack([1 - ensemble_proba, ensemble_proba])
+
+D. EVALUATION FRAMEWORK
+----------------------
+
+# File: who_evaluation.py
+class WHOEvaluationFramework:
+    def __init__(self):
+        self.results = {}
+    
+    def comprehensive_evaluation(self, y_true, y_pred_proba, model_name):
+        """Complete evaluation including WHO-specific metrics"""
+        
+        # Find optimal threshold
+        threshold_results = optimize_who_threshold(y_true, y_pred_proba)
+        optimal_threshold = threshold_results['best_threshold']
+        
+        y_pred = (y_pred_proba >= optimal_threshold).astype(int)
+        
+        # Standard metrics
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        npv = tn / (tn + fn) if (tn + fn) > 0 else 0
+        
+        # WHO-specific metrics
+        who_compliant = (sensitivity >= 0.9) and (specificity >= 0.7)
+        who_score = min(sensitivity, specificity) if who_compliant else 0
+        
+        # Clinical cost calculation
+        clinical_cost = (fn * 1000 + fp * 100)  # False negative much more costly
+        
+        # ROC and PR AUC
+        from sklearn.metrics import roc_auc_score, average_precision_score
+        roc_auc = roc_auc_score(y_true, y_pred_proba)
+        pr_auc = average_precision_score(y_true, y_pred_proba)
+        
+        results = {
+            'model_name': model_name,
+            'optimal_threshold': optimal_threshold,
+            'sensitivity': sensitivity,
+            'specificity': specificity,
+            'precision': precision,
+            'npv': npv,
+            'who_compliant': who_compliant,
+            'who_score': who_score,
+            'roc_auc': roc_auc,
+            'pr_auc': pr_auc,
+            'clinical_cost': clinical_cost,
+            'f1_score': 2 * (precision * sensitivity) / (precision + sensitivity) if (precision + sensitivity) > 0 else 0
+        }
+        
+        self.results[model_name] = results
+        return results
+    
+    def generate_who_report(self):
+        """Generate comprehensive WHO compliance report"""
+        if not self.results:
+            return "No evaluation results available"
+        
+        report = ["WHO TB SCREENING COMPLIANCE EVALUATION REPORT"]
+        report.append("=" * 50)
+        report.append("")
+        
+        # Sort models by WHO score
+        sorted_models = sorted(self.results.items(), 
+                             key=lambda x: x[1]['who_score'], 
+                             reverse=True)
+        
+        report.append("WHO COMPLIANT MODELS:")
+        report.append("-" * 25)
+        for model_name, results in sorted_models:
+            if results['who_compliant']:
+                report.append(f"✅ {model_name}:")
+                report.append(f"   Sensitivity: {results['sensitivity']:.3f} (≥0.9 ✅)")
+                report.append(f"   Specificity: {results['specificity']:.3f} (≥0.7 ✅)")
+                report.append(f"   WHO Score: {results['who_score']:.3f}")
+                report.append(f"   Optimal Threshold: {results['optimal_threshold']:.3f}")
+                report.append("")
+        
+        report.append("NON-COMPLIANT MODELS:")
+        report.append("-" * 22)
+        for model_name, results in sorted_models:
+            if not results['who_compliant']:
+                sens_status = "✅" if results['sensitivity'] >= 0.9 else "❌"
+                spec_status = "✅" if results['specificity'] >= 0.7 else "❌"
+                
+                report.append(f"❌ {model_name}:")
+                report.append(f"   Sensitivity: {results['sensitivity']:.3f} {sens_status}")
+                report.append(f"   Specificity: {results['specificity']:.3f} {spec_status}")
+                report.append(f"   WHO Score: {results['who_score']:.3f}")
+                report.append("")
+        
+        return "\n".join(report)
+
+
+CONCLUSION
+==========
+
+This comprehensive approach provides multiple pathways to achieve WHO TB screening compliance. The key is to start with immediate, low-effort improvements while building toward more sophisticated solutions.
+
+Priority order:
+1. Implement threshold optimization and WHO-specific loss functions
+2. Add ensemble methods and advanced models (CatBoost, improved MLP)
+3. Enhance data preprocessing and feature engineering
+4. Integrate clinical domain knowledge and costs
+
+Expected timeline to WHO compliance: 4-8 weeks with dedicated implementation effort.
+
+For questions or implementation support, please refer to the code examples provided above.
+
+---
+Document prepared by: Claude Code Assistant
+Date: 2025-07-22
+Version: 1.0
