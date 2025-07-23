@@ -6,20 +6,53 @@
 
 A GPU-accelerated machine learning pipeline for TB detection from cough audio using Google's HeAR (Health Acoustic Representations) model. **Goal**: Achieve WHO TB screening standards (≥90% sensitivity, ≥70% specificity).
 
-## 📁 Generate Embeddings (If Not Present)
+## 📁 Data Preparation Pipeline
 
-**If you don't have embeddings files yet, start here first:**
+**Complete workflow from raw audio to embeddings. Follow in order:**
 
-### Check for Existing Embeddings
+### Step 1: Check for Required Data Files
 ```bash
-# Look for embeddings in data directory
+# Check for critical prerequisite files
+ls -la data/clean_patients_final.csv     # Patient labels (TB status)
+ls -la data/file_mapping_final.csv       # Audio file → patient mapping
+
+# Check for embeddings
 ls -la data/*.npz
 
-# If you see files like "final_embeddings.npz", skip to Quick Start section
-# If no .npz files exist, continue with embedding generation below
+# If you have embeddings (.npz files), skip to Quick Start section
+# If missing prerequisite files, continue with data preparation below
 ```
 
-### Generate Embeddings from Audio Files
+### Step 2: Generate Prerequisite Files (If Missing)
+
+**If you're missing the critical data files above, run the data validation script:**
+
+```bash
+# Generate clean patient dataset and file mapping
+python data_validation_final.py
+
+# This creates:
+# - data/clean_patients_final.csv (543 patients with TB labels)  
+# - data/file_mapping_final.csv (10,682 audio files → patient mapping)
+```
+
+**Requirements for data validation:**
+- **Raw audio files** organized in patient directories (e.g., `R2D200001/audio.wav`)
+- **Patient metadata** with TB diagnosis labels
+- **Directory structure** following UCSF R2D2 format
+
+### Step 3: Check Data Validation Results
+```bash
+# Verify the generated files
+echo "Clean patients: $(wc -l < data/clean_patients_final.csv) patients"
+echo "File mapping: $(wc -l < data/file_mapping_final.csv) audio files"
+
+# Expected output:
+# Clean patients: 544 patients (including header)
+# File mapping: 10,683 audio files (including header)
+```
+
+### Step 4: Generate Embeddings from Audio Files
 
 #### Option 1: CPU-Optimized Generation (Recommended for most users)
 ```bash
