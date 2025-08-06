@@ -858,7 +858,7 @@ def create_performance_dashboard(results, config):
     colors = ['green' if compliant else 'red' for compliant in who_compliant]
     
     bars = ax.bar(model_names, who_scores, color=colors, alpha=0.7)
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (0.8)')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (1.25)')
     ax.set_title('WHO Compliance Score')
     ax.set_ylabel('WHO Score')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
@@ -1085,7 +1085,7 @@ def create_cv_performance_dashboard(results, config):
     who_means = [r['mean_results'].get('who_score_mean', 0) for r in results]
     who_stds = [r['mean_results'].get('who_score_std', 0) for r in results]
     bars = ax.bar(model_names, who_means, yerr=who_stds, color='lightcoral', alpha=0.7, capsize=5)
-    ax.axhline(y=0.8, color='red', linestyle='--', alpha=0.7, label='WHO Threshold ≥0.8')
+    ax.axhline(y=1.25, color='red', linestyle='--', alpha=0.7, label='WHO Threshold ≥1.25')
     ax.set_title('WHO Score (Mean ± Std)')
     ax.set_ylabel('WHO Score')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
@@ -1210,7 +1210,7 @@ def create_cv_fold_variance_plots(results, config):
             folds = range(1, len(fold_who_scores) + 1)
             ax.plot(folds, fold_who_scores, marker='d', label=result['model_name'], alpha=0.7)
     
-    ax.axhline(y=0.8, color='red', linestyle='--', alpha=0.5, label='WHO Threshold ≥0.8')
+    ax.axhline(y=1.25, color='red', linestyle='--', alpha=0.5, label='WHO Threshold ≥1.25')
     ax.set_xlabel('Fold')
     ax.set_ylabel('WHO Score')
     ax.set_title('WHO Score Across CV Folds')
@@ -1257,7 +1257,7 @@ def create_who_compliance_analysis(results, config):
     ax = axes[1]
     who_scores = [r['who_score'] for r in results]  # Already calculated with optimized thresholds
     bars = ax.bar(model_names, who_scores, color=colors, alpha=0.7)
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (0.8)')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (1.25)')
     ax.set_ylabel('WHO Score')
     ax.set_title('WHO Score Distribution')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
@@ -1460,7 +1460,7 @@ def create_cv_who_compliance_analysis(results, config):
     
     bars = ax.bar(model_names, who_means, yerr=who_stds, color='lightblue', alpha=0.7, 
                   capsize=5, edgecolor='black')
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (0.8)')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (1.25)')
     
     ax.set_ylabel('WHO Score (Mean ± Std)')
     ax.set_title('WHO Score Across CV Folds')

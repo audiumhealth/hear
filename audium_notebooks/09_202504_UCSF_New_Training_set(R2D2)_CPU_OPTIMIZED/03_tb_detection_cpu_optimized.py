@@ -282,9 +282,9 @@ def train_model_parallel(args):
         specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0
         
-        # WHO compliance check (Sensitivity + 0.5 × Specificity ≥ 0.8)
+        # WHO compliance check (Sensitivity + 0.5 × Specificity ≥ 1.25)
         who_score = sensitivity + 0.5 * specificity
-        who_compliant = who_score >= 0.8
+        who_compliant = who_score >= 1.25
         
         training_time = (datetime.now() - start_time).total_seconds()
         
@@ -476,7 +476,7 @@ def evaluate_models_cross_validation(X, y, config):
                 
                 # WHO compliance check
                 who_score = sensitivity + 0.5 * specificity
-                who_compliant = who_score >= 0.8
+                who_compliant = who_score >= 1.25
                 
                 fold_results.append({
                     'fold': fold_idx + 1,
@@ -717,7 +717,7 @@ def create_performance_dashboard(results, config):
     colors = ['green' if compliant else 'red' for compliant in who_compliant]
     
     bars = ax.bar(model_names, who_scores, color=colors, alpha=0.7)
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (0.8)')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (1.25)')
     ax.set_title('WHO Compliance Score')
     ax.set_ylabel('WHO Score')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
@@ -912,7 +912,7 @@ def create_who_compliance_analysis(results, config):
     bars = ax.bar(model_names, who_scores, color=colors, alpha=0.7, edgecolor='black')
     
     # Add WHO threshold line
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.8, linewidth=2, label='WHO Threshold (0.8)')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.8, linewidth=2, label='WHO Threshold (1.25)')
     
     # Add value labels on bars
     for bar, score, compliant in zip(bars, who_scores, who_compliant):
@@ -1020,7 +1020,7 @@ def create_cv_performance_dashboard(results, config):
     colors = ['green' if rate >= 0.5 else 'orange' if rate >= 0.2 else 'red' for rate in who_compliant_rates]
     
     bars = ax.bar(model_names, means, yerr=stds, color=colors, alpha=0.7, capsize=5)
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (0.8)')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (1.25)')
     ax.set_title('WHO Score (Cross-Validation)')
     ax.set_ylabel('WHO Score')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
@@ -1083,7 +1083,7 @@ def create_cv_fold_variance_plots(results, config):
         folds = range(1, len(fold_who_scores) + 1)
         ax.plot(folds, fold_who_scores, marker='^', label=result['model_name'], alpha=0.7)
     
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.5, label='WHO Threshold (0.8)')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.5, label='WHO Threshold (1.25)')
     ax.set_xlabel('Fold')
     ax.set_ylabel('WHO Score')
     ax.set_title('WHO Score Across CV Folds')
@@ -1263,7 +1263,7 @@ def create_cv_who_compliance_analysis(results, config):
     colors = ['green' if rate >= 0.8 else 'orange' if rate >= 0.5 else 'red' for rate in compliance_rates]
     
     bars = ax.bar(model_names, compliance_rates, color=colors, alpha=0.7, edgecolor='black')
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.8, label='80% Compliance Target')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.8, label='80% Compliance Target')
     
     # Add value labels
     for bar, rate, result in zip(bars, compliance_rates, results):
@@ -1286,7 +1286,7 @@ def create_cv_who_compliance_analysis(results, config):
     
     bars = ax.bar(model_names, who_means, yerr=who_stds, color='lightblue', alpha=0.7, 
                   capsize=5, edgecolor='black')
-    ax.axhline(y=0.8, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (0.8)')
+    ax.axhline(y=1.25, color='black', linestyle='--', alpha=0.8, label='WHO Threshold (1.25)')
     
     ax.set_ylabel('WHO Score (Mean ± Std)')
     ax.set_title('WHO Score Across CV Folds')
