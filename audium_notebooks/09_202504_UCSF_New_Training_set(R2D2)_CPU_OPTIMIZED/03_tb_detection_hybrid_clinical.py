@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-GPU-Optimized TB Detection Analysis for UCSF R2D2 Training Dataset
-Targets performance bottlenecks with GPU acceleration, especially WHO-SVM optimization
+Hybrid Clinical + Audio TB Detection Analysis for UCSF R2D2 Training Dataset
+Combines HeAR audio embeddings with Tier 1 clinical features (Sex, Age, BMI, Temperature, HR)
+for improved WHO compliance targeting ≥90% sensitivity, ≥70% specificity
 """
 
 import os
@@ -218,6 +219,66 @@ class PyTorchMLPWrapper:
     def predict(self, X):
         probs = self.predict_proba(X)[:, 1]
         return (probs >= 0.5).astype(int)
+
+def load_clinical_features():
+    """Load and engineer Tier 1 clinical features from original R2D2 metadata"""
+    print("📋 Loading clinical features...")
+    
+    # Load original metadata with clinical data
+    clinical_path = '/Users/abelvillcaroque/data/Audium/202504_UCSF_New_Trainig_set(R2D2)/R2D2 lung sounds metadata_TRAIN_2025.05.08_v3.csv'
+    clinical_df = pd.read_csv(clinical_path)
+    print(f"   📁 Loaded clinical metadata: {len(clinical_df)} patients")
+    
+    # Select and clean required features
+    required_cols = ['StudyID', 'Sex', 'Age', 'Height', 'Weight', 'Temperature', 'Heartrate']
+    clinical_clean = clinical_df[required_cols].copy()
+    
+    # Handle missing values
+    clinical_clean = clinical_clean.dropna()
+    print(f"   🧹 After cleaning: {len(clinical_clean)} patients with complete clinical data")
+    
+    # Feature engineering
+    print("   🔧 Engineering clinical features...")
+    
+    # 1. Sex encoding
+    clinical_clean['sex_encoded'] = (clinical_clean['Sex'] == 'Male').astype(int)
+    
+    # 2. BMI calculation
+    clinical_clean['BMI'] = clinical_clean['Weight'] / (clinical_clean['Height']/100)**2
+    
+    # 3. Binary clinical flags
+    clinical_clean['fever'] = (clinical_clean['Temperature'] > 37.5).astype(int)  # Fever flag
+    clinical_clean['tachycardia'] = (clinical_clean['Heartrate'] > 100).astype(int)  # Elevated HR
+    
+    # 4. BMI categories (WHO standard)
+    clinical_clean['bmi_underweight'] = (clinical_clean['BMI'] < 18.5).astype(int)
+    
+    # 5. Normalize continuous features for ML
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    continuous_features = ['Age', 'BMI', 'Temperature', 'Heartrate']
+    scaled_features = scaler.fit_transform(clinical_clean[continuous_features])
+    
+    # Add normalized features
+    for i, feature in enumerate(continuous_features):
+        clinical_clean[f'{feature.lower()}_norm'] = scaled_features[:, i]
+    
+    # Final clinical feature set (8 features)
+    clinical_feature_cols = [
+        'sex_encoded',      # 0=Female, 1=Male
+        'age_norm',         # Normalized age
+        'bmi_norm',         # Normalized BMI
+        'temperature_norm', # Normalized temperature
+        'heartrate_norm',   # Normalized heart rate
+        'fever',            # Binary fever flag
+        'tachycardia',      # Binary elevated HR
+        'bmi_underweight'   # Binary underweight flag
+    ]
+    
+    clinical_features = clinical_clean[['StudyID'] + clinical_feature_cols]
+    print(f"   ✅ Clinical features ready: {len(clinical_feature_cols)} features for {len(clinical_features)} patients")
+    
+    return clinical_features, clinical_feature_cols
 
 def load_embeddings_and_labels(config):
     """Load embeddings and labels with enhanced error handling"""
@@ -496,20 +557,6 @@ def evaluate_model_single_fold(X_train, X_test, y_train, y_test, model, model_na
         
         if y_test_proba is not None:
             optimal_threshold, optimal_sensitivity, optimal_specificity, optimal_who_compliant = optimize_who_threshold(y_test, y_test_proba)
-            
-            # Calculate optimized precision and F1 using optimal threshold
-            y_test_pred_optimal = (y_test_proba >= optimal_threshold).astype(int)
-            cm_optimal = confusion_matrix(y_test, y_test_pred_optimal)
-            if cm_optimal.shape == (2, 2):
-                tn_opt, fp_opt, fn_opt, tp_opt = cm_optimal.ravel()
-                optimal_precision = tp_opt / (tp_opt + fp_opt) if (tp_opt + fp_opt) > 0 else 0
-                optimal_f1 = f1_score(y_test, y_test_pred_optimal, average='weighted')
-            else:
-                optimal_precision = 0
-                optimal_f1 = 0
-        else:
-            optimal_precision = precision
-            optimal_f1 = f1
         
         # WHO score and compliance (using optimized metrics)
         who_score = optimal_sensitivity + 0.5 * optimal_specificity if optimal_sensitivity > 0 and optimal_specificity > 0 else 0
@@ -531,8 +578,6 @@ def evaluate_model_single_fold(X_train, X_test, y_train, y_test, model, model_na
             'optimal_threshold': optimal_threshold,
             'optimal_sensitivity': optimal_sensitivity,
             'optimal_specificity': optimal_specificity,
-            'optimal_precision': optimal_precision,
-            'optimal_f1_score': optimal_f1,
             'optimal_who_compliant': optimal_who_compliant,
             'training_time': training_time,
             'confusion_matrix': {'tn': tn, 'fp': fp, 'fn': fn, 'tp': tp},
@@ -648,36 +693,13 @@ def evaluate_models_cross_validation(X, y, config):
             # Calculate mean and std across folds
             metrics = ['train_accuracy', 'test_accuracy', 'sensitivity', 'specificity', 
                       'precision', 'f1_score', 'roc_auc', 'who_score', 'optimal_threshold',
-                      'optimal_sensitivity', 'optimal_specificity', 'optimal_precision', 'optimal_f1_score']
+                      'optimal_sensitivity', 'optimal_specificity']
             
             mean_results = {}
-            print(f"🔍 DEBUG - {model_name}: Processing {len(metrics)} metrics across {len(fold_results)} folds")
-            
             for metric in metrics:
-                try:
-                    values = [r[metric] for r in fold_results]
-                    mean_results[f'{metric}_mean'] = np.mean(values)
-                    mean_results[f'{metric}_std'] = np.std(values, ddof=1)  # Sample std for unbiased estimate
-                    
-                    # Debug logging for optimal metrics
-                    if metric.startswith('optimal'):
-                        print(f"🔍 DEBUG - {model_name}: {metric}_mean = {mean_results[f'{metric}_mean']:.4f}")
-                        print(f"🔍 DEBUG - {model_name}: {metric}_std = {mean_results[f'{metric}_std']:.4f}")
-                        print(f"🔍 DEBUG - {model_name}: {metric} fold values = {[r[metric] for r in fold_results]}")
-                        
-                except KeyError as e:
-                    print(f"❌ ERROR - {model_name}: Missing key '{metric}' in fold results")
-                    print(f"❌ ERROR - {model_name}: Available keys in fold 0: {list(fold_results[0].keys())}")
-                    mean_results[f'{metric}_mean'] = 0.0
-                    mean_results[f'{metric}_std'] = 0.0
-                except Exception as e:
-                    print(f"❌ ERROR - {model_name}: Exception processing '{metric}': {str(e)}")
-                    mean_results[f'{metric}_mean'] = 0.0
-                    mean_results[f'{metric}_std'] = 0.0
-            
-            # Debug: Final key verification
-            optimal_keys = [k for k in mean_results.keys() if 'optimal' in k]
-            print(f"🔍 DEBUG - {model_name}: Created optimal keys: {optimal_keys}")
+                values = [r[metric] for r in fold_results]
+                mean_results[f'{metric}_mean'] = np.mean(values)
+                mean_results[f'{metric}_std'] = np.std(values)
             
             # WHO compliance analysis (using optimized thresholds)
             who_compliant_folds = sum(1 for r in fold_results if r['optimal_who_compliant'])
@@ -772,12 +794,12 @@ def create_performance_dashboard(results, config):
     
     model_names = [r['model_name'] for r in results]
     
-    # Plot 1: Sensitivity with WHO target (using optimized thresholds)
+    # Plot 1: Sensitivity with WHO target
     ax = axes[0, 0]
-    sensitivities = [r.get('optimal_sensitivity', r.get('sensitivity', 0)) for r in results]
+    sensitivities = [r['sensitivity'] for r in results]
     bars = ax.bar(model_names, sensitivities, color='lightblue', alpha=0.7)
     ax.axhline(y=0.9, color='red', linestyle='--', alpha=0.7, label='WHO Target ≥90%')
-    ax.set_title('Sensitivity (Recall) - Optimized Thresholds')
+    ax.set_title('Sensitivity (Recall)')
     ax.set_ylabel('Sensitivity')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
     ax.legend()
@@ -789,12 +811,12 @@ def create_performance_dashboard(results, config):
         ax.text(bar.get_x() + bar.get_width()/2., height + 0.02,
                 f'{val:.3f}', ha='center', va='bottom', fontsize=8)
     
-    # Plot 2: Specificity with WHO target (using optimized thresholds)
+    # Plot 2: Specificity with WHO target
     ax = axes[0, 1]
-    specificities = [r.get('optimal_specificity', r.get('specificity', 0)) for r in results]
+    specificities = [r['specificity'] for r in results]
     bars = ax.bar(model_names, specificities, color='lightgreen', alpha=0.7)
     ax.axhline(y=0.7, color='red', linestyle='--', alpha=0.7, label='WHO Target ≥70%')
-    ax.set_title('Specificity - Optimized Thresholds')
+    ax.set_title('Specificity')
     ax.set_ylabel('Specificity')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
     ax.legend()
@@ -806,11 +828,11 @@ def create_performance_dashboard(results, config):
         ax.text(bar.get_x() + bar.get_width()/2., height + 0.02,
                 f'{val:.3f}', ha='center', va='bottom', fontsize=8)
     
-    # Plot 3: Precision (using optimized thresholds)
+    # Plot 3: Precision
     ax = axes[0, 2]
-    precisions = [r.get('optimal_precision', r.get('precision', 0)) for r in results]
+    precisions = [r['precision'] for r in results]
     bars = ax.bar(model_names, precisions, color='lightcoral', alpha=0.7)
-    ax.set_title('Precision - Optimized Thresholds')
+    ax.set_title('Precision')
     ax.set_ylabel('Precision')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
     ax.grid(True, alpha=0.3)
@@ -821,11 +843,11 @@ def create_performance_dashboard(results, config):
         ax.text(bar.get_x() + bar.get_width()/2., height + 0.02,
                 f'{val:.3f}', ha='center', va='bottom', fontsize=8)
     
-    # Plot 4: F1 Score (using optimized thresholds)
+    # Plot 4: F1 Score
     ax = axes[1, 0]
-    f1_scores = [r.get('optimal_f1_score', r.get('f1_score', 0)) for r in results]
+    f1_scores = [r['f1_score'] for r in results]
     bars = ax.bar(model_names, f1_scores, color='lightsalmon', alpha=0.7)
-    ax.set_title('F1 Score - Optimized Thresholds')
+    ax.set_title('F1 Score')
     ax.set_ylabel('F1 Score')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
     ax.grid(True, alpha=0.3)
@@ -1011,58 +1033,29 @@ def create_cv_performance_dashboard(results, config):
     
     model_names = [r['model_name'] for r in results]
     
-    # Extract mean values and std for error bars with fallbacks (using optimized thresholds)
-    sens_means = []
-    sens_stds = []
-    spec_means = []
-    spec_stds = []
+    # Extract mean values and std for error bars with fallbacks
+    sens_means = [r['mean_results'].get('sensitivity_mean', 0) for r in results]
+    sens_stds = [r['mean_results'].get('sensitivity_std', 0) for r in results]
     
-    for r in results:
-        model_name = r['model_name']
-        
-        # Debug: Check what keys exist
-        print(f"🔍 DEBUG PLOT - {model_name}: Available mean_results keys = {list(r['mean_results'].keys())}")
-        
-        # Sensitivity
-        if 'optimal_sensitivity_mean' in r['mean_results']:
-            sens_mean = r['mean_results']['optimal_sensitivity_mean']
-            sens_std = r['mean_results']['optimal_sensitivity_std']
-            print(f"✅ DEBUG PLOT - {model_name}: Using optimal_sensitivity_mean = {sens_mean:.4f}")
-        else:
-            sens_mean = r['mean_results'].get('sensitivity_mean', 0)
-            sens_std = r['mean_results'].get('sensitivity_std', 0)
-            print(f"❌ DEBUG PLOT - {model_name}: Fallback to sensitivity_mean = {sens_mean:.4f}")
-        sens_means.append(sens_mean)
-        sens_stds.append(sens_std)
-        
-        # Specificity  
-        if 'optimal_specificity_mean' in r['mean_results']:
-            spec_mean = r['mean_results']['optimal_specificity_mean']
-            spec_std = r['mean_results']['optimal_specificity_std']
-            print(f"✅ DEBUG PLOT - {model_name}: Using optimal_specificity_mean = {spec_mean:.4f}")
-        else:
-            spec_mean = r['mean_results'].get('specificity_mean', 0)
-            spec_std = r['mean_results'].get('specificity_std', 0)
-            print(f"❌ DEBUG PLOT - {model_name}: Fallback to specificity_mean = {spec_mean:.4f}")
-        spec_means.append(spec_mean)
-        spec_stds.append(spec_std)
+    spec_means = [r['mean_results'].get('specificity_mean', 0) for r in results]  
+    spec_stds = [r['mean_results'].get('specificity_std', 0) for r in results]
     
-    # Plot 1: Sensitivity with error bars (optimized thresholds)
+    # Plot 1: Sensitivity with error bars
     ax = axes[0, 0]
     bars = ax.bar(model_names, sens_means, yerr=sens_stds, color='lightblue', alpha=0.7, capsize=5)
     ax.axhline(y=0.9, color='red', linestyle='--', alpha=0.7, label='WHO Target ≥90%')
-    ax.set_title('Sensitivity (Mean ± Std) - Optimized Thresholds')
+    ax.set_title('Sensitivity (Mean ± Std)')
     ax.set_ylabel('Sensitivity')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
     ax.legend()
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1.1)
     
-    # Plot 2: Specificity with error bars (optimized thresholds)
+    # Plot 2: Specificity with error bars
     ax = axes[0, 1]
     bars = ax.bar(model_names, spec_means, yerr=spec_stds, color='lightgreen', alpha=0.7, capsize=5)
     ax.axhline(y=0.7, color='red', linestyle='--', alpha=0.7, label='WHO Target ≥70%')
-    ax.set_title('Specificity (Mean ± Std) - Optimized Thresholds')
+    ax.set_title('Specificity (Mean ± Std)')
     ax.set_ylabel('Specificity')
     ax.set_xticklabels(model_names, rotation=45, ha='right')
     ax.legend()
@@ -1151,13 +1144,12 @@ def create_cv_fold_variance_plots(results, config):
     model_names = [r['model_name'] for r in results]
     n_folds = results[0]['total_folds'] if results else config.n_folds
     
-    # Plot 1: Sensitivity variance across folds (using optimized thresholds)
+    # Plot 1: Sensitivity variance across folds
     ax = axes[0, 0]
     for i, result in enumerate(results):
-        fold_sens = [fold['optimal_sensitivity'] for fold in result['fold_results']]  # Use optimal values
+        fold_sens = [fold['sensitivity'] for fold in result['fold_results']]
         folds = range(1, len(fold_sens) + 1)
         ax.plot(folds, fold_sens, marker='o', label=result['model_name'], alpha=0.7)
-        print(f"🔍 DEBUG FOLD VARIANCE - {result['model_name']}: optimal_sensitivity folds = {fold_sens}")
     
     ax.axhline(y=0.9, color='red', linestyle='--', alpha=0.5, label='WHO Target ≥90%')
     ax.set_xlabel('Fold')
@@ -1167,13 +1159,12 @@ def create_cv_fold_variance_plots(results, config):
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1.1)
     
-    # Plot 2: Specificity variance across folds (using optimized thresholds)
+    # Plot 2: Specificity variance across folds
     ax = axes[0, 1]
     for i, result in enumerate(results):
-        fold_specs = [fold['optimal_specificity'] for fold in result['fold_results']]  # Use optimal values
+        fold_specs = [fold['specificity'] for fold in result['fold_results']]
         folds = range(1, len(fold_specs) + 1)
         ax.plot(folds, fold_specs, marker='s', label=result['model_name'], alpha=0.7)
-        print(f"🔍 DEBUG FOLD VARIANCE - {result['model_name']}: optimal_specificity folds = {fold_specs}")
     
     ax.axhline(y=0.7, color='red', linestyle='--', alpha=0.5, label='WHO Target ≥70%')
     ax.set_xlabel('Fold')
@@ -1333,7 +1324,7 @@ def create_cv_roc_curves(results, config):
         
         if fold_aucs:
             mean_auc = np.mean(fold_aucs)
-            std_auc = np.std(fold_aucs, ddof=1)  # Sample std for unbiased estimate
+            std_auc = np.std(fold_aucs)
             
             # Plot mean ROC curve (simplified)
             mean_fpr = np.linspace(0, 1, 100)
@@ -1385,7 +1376,7 @@ def create_cv_precision_recall_curves(results, config):
         
         if fold_aps:
             mean_ap = np.mean(fold_aps)
-            std_ap = np.std(fold_aps, ddof=1)  # Sample std for unbiased estimate
+            std_ap = np.std(fold_aps)
             
             # Plot mean PR curve (simplified)
             mean_recall = np.linspace(0, 1, 100)
@@ -1471,32 +1462,10 @@ def create_cv_who_compliance_analysis(results, config):
     
     # Plot 3: Sensitivity vs Specificity (Mean with Error Bars - optimized)
     ax = axes[2]
-    
-    print("🔍 DEBUG WHO PLOT - Checking optimal metrics availability...")
-    sens_means = []
-    sens_stds = []
-    spec_means = []
-    spec_stds = []
-    
-    for r in results:
-        model_name = r['model_name']
-        
-        # Check optimal keys
-        has_optimal_sens = 'optimal_sensitivity_mean' in r['mean_results']
-        has_optimal_spec = 'optimal_specificity_mean' in r['mean_results']
-        
-        sens_mean = r['mean_results'].get('optimal_sensitivity_mean', r['mean_results']['sensitivity_mean'])
-        sens_std = r['mean_results'].get('optimal_sensitivity_std', r['mean_results']['sensitivity_std'])
-        spec_mean = r['mean_results'].get('optimal_specificity_mean', r['mean_results']['specificity_mean'])
-        spec_std = r['mean_results'].get('optimal_specificity_std', r['mean_results']['specificity_std'])
-        
-        print(f"🔍 DEBUG WHO - {model_name}: optimal_sens={has_optimal_sens}, optimal_spec={has_optimal_spec}")
-        print(f"🔍 DEBUG WHO - {model_name}: sens={sens_mean:.4f}, spec={spec_mean:.4f}")
-        
-        sens_means.append(sens_mean)
-        sens_stds.append(sens_std)
-        spec_means.append(spec_mean)
-        spec_stds.append(spec_std)
+    sens_means = [r['mean_results'].get('optimal_sensitivity_mean', r['mean_results']['sensitivity_mean']) for r in results]
+    sens_stds = [r['mean_results'].get('optimal_sensitivity_std', r['mean_results']['sensitivity_std']) for r in results]
+    spec_means = [r['mean_results'].get('optimal_specificity_mean', r['mean_results']['specificity_mean']) for r in results]
+    spec_stds = [r['mean_results'].get('optimal_specificity_std', r['mean_results']['specificity_std']) for r in results]
     
     colors = ['green' if rate >= 0.5 else 'orange' if rate >= 0.2 else 'red' 
               for rate in compliance_rates]
@@ -1552,13 +1521,13 @@ def save_single_split_results(results, config):
                 'Model': result['model_name'],
                 'Train_Accuracy': result['train_accuracy'],
                 'Test_Accuracy': result['test_accuracy'], 
-                'Sensitivity': result['optimal_sensitivity'],      # Use optimal values
-                'Specificity': result['optimal_specificity'],     # Use optimal values
-                'Precision': result['optimal_precision'],         # Use optimal values
-                'F1_Score': result['optimal_f1_score'],           # Use optimal values
+                'Sensitivity': result['sensitivity'],
+                'Specificity': result['specificity'],
+                'Precision': result['precision'],
+                'F1_Score': result['f1_score'],
                 'ROC_AUC': result['roc_auc'],
-                'WHO_Score': result['who_score'],                 # Already uses optimal
-                'WHO_Compliant': result['optimal_who_compliant'], # Use optimal compliance
+                'WHO_Score': result['who_score'],
+                'WHO_Compliant': result['who_compliant'],
                 'Training_Time': result['training_time'],
                 'TP': result['confusion_matrix']['tp'],
                 'TN': result['confusion_matrix']['tn'],
@@ -1628,24 +1597,21 @@ def save_cross_validation_results(results, config):
         if 'error' not in result:
             mean_res = result['mean_results']
             
-            # Summary results (mean ± std across folds) - USING OPTIMIZED THRESHOLDS
-            print(f"🔍 DEBUG CSV - {result['model_name']}: optimal_specificity_mean = {mean_res['optimal_specificity_mean']:.4f}")
-            print(f"🔍 DEBUG CSV - {result['model_name']}: optimal_specificity_std = {mean_res['optimal_specificity_std']:.4f}")
-            
+            # Summary results (mean ± std across folds)
             summary_data.append({
                 'Model': result['model_name'],
                 'Train_Accuracy_Mean': mean_res['train_accuracy_mean'],
                 'Train_Accuracy_Std': mean_res['train_accuracy_std'],
                 'Test_Accuracy_Mean': mean_res['test_accuracy_mean'],
                 'Test_Accuracy_Std': mean_res['test_accuracy_std'],
-                'Sensitivity_Mean': mean_res['optimal_sensitivity_mean'],  # Use optimal values
-                'Sensitivity_Std': mean_res['optimal_sensitivity_std'],
-                'Specificity_Mean': mean_res['optimal_specificity_mean'],  # Use optimal values  
-                'Specificity_Std': mean_res['optimal_specificity_std'],
-                'Precision_Mean': mean_res['optimal_precision_mean'],      # Use optimal values
-                'Precision_Std': mean_res['optimal_precision_std'],
-                'F1_Score_Mean': mean_res['optimal_f1_score_mean'],        # Use optimal values
-                'F1_Score_Std': mean_res['optimal_f1_score_std'],
+                'Sensitivity_Mean': mean_res['sensitivity_mean'],
+                'Sensitivity_Std': mean_res['sensitivity_std'],
+                'Specificity_Mean': mean_res['specificity_mean'],
+                'Specificity_Std': mean_res['specificity_std'],
+                'Precision_Mean': mean_res['precision_mean'],
+                'Precision_Std': mean_res['precision_std'],
+                'F1_Score_Mean': mean_res['f1_score_mean'],
+                'F1_Score_Std': mean_res['f1_score_std'],
                 'ROC_AUC_Mean': mean_res['roc_auc_mean'],
                 'ROC_AUC_Std': mean_res['roc_auc_std'],
                 'WHO_Score_Mean': mean_res['who_score_mean'],
@@ -1656,20 +1622,20 @@ def save_cross_validation_results(results, config):
                 'Training_Time': result['training_time']
             })
             
-            # Detailed results (all folds) - USING OPTIMIZED THRESHOLDS
+            # Detailed results (all folds)
             for fold_result in result['fold_results']:
                 detailed_data.append({
                     'Model': result['model_name'],
                     'Fold': fold_result['fold'],
                     'Train_Accuracy': fold_result['train_accuracy'],
                     'Test_Accuracy': fold_result['test_accuracy'],
-                    'Sensitivity': fold_result['optimal_sensitivity'],      # Use optimal values
-                    'Specificity': fold_result['optimal_specificity'],     # Use optimal values
-                    'Precision': fold_result['optimal_precision'],         # Use optimal values
-                    'F1_Score': fold_result['optimal_f1_score'],           # Use optimal values
+                    'Sensitivity': fold_result['sensitivity'],
+                    'Specificity': fold_result['specificity'],
+                    'Precision': fold_result['precision'],
+                    'F1_Score': fold_result['f1_score'],
                     'ROC_AUC': fold_result['roc_auc'],
-                    'WHO_Score': fold_result['who_score'],                 # Already uses optimal
-                    'WHO_Compliant': fold_result['optimal_who_compliant'], # Use optimal compliance
+                    'WHO_Score': fold_result['who_score'],
+                    'WHO_Compliant': fold_result['who_compliant'],
                     'TP': fold_result['confusion_matrix']['tp'],
                     'TN': fold_result['confusion_matrix']['tn'],
                     'FP': fold_result['confusion_matrix']['fp'],
@@ -1765,8 +1731,36 @@ def main():
         print(f"   🟢 TB Positive clips: {np.sum(y)}")
         print(f"   🔴 TB Negative clips: {len(y) - np.sum(y)}")
         
-        # Train and evaluate models
-        results, scaler = evaluate_models_parallel(X, y, config)
+        # Load and merge clinical features
+        clinical_features, clinical_feature_names = load_clinical_features()
+        
+        print("🔗 Merging audio embeddings with clinical features...")
+        
+        # Create DataFrame for merging
+        audio_df = pd.DataFrame(X, index=patient_ids)
+        
+        # Merge with clinical data (inner join - only patients with both audio + clinical)
+        merged_df = audio_df.merge(
+            clinical_features.set_index('StudyID'), 
+            left_index=True, right_index=True, how='inner'
+        )
+        
+        print(f"   📊 Successfully merged: {len(merged_df)} patients with both audio + clinical data")
+        
+        # Extract hybrid features and aligned labels
+        X_hybrid = merged_df.values  # Shape: (n_patients, 3584 audio + 8 clinical)
+        
+        # Get labels for merged patients only
+        merged_patient_ids = merged_df.index.values
+        y_hybrid = np.array([1 if label_map.get(pid, 'TB Negative') == 'TB Positive' else 0 for pid in merged_patient_ids])
+        
+        print(f"   🎯 Hybrid features shape: {X_hybrid.shape}")
+        print(f"   🎯 Audio features: {X.shape[1]} dims")
+        print(f"   🎯 Clinical features: {len(clinical_feature_names)} dims")
+        print(f"   🎯 Class distribution: {np.sum(y_hybrid)} TB+, {len(y_hybrid) - np.sum(y_hybrid)} TB-")
+        
+        # Train and evaluate models with hybrid features
+        results, scaler = evaluate_models_parallel(X_hybrid, y_hybrid, config)
         
         # Create visualizations
         create_comprehensive_visualizations(results, config)

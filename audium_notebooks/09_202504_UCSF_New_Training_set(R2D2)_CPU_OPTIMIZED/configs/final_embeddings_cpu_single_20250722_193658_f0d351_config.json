@@ -1,0 +1,38 @@
+{
+  "run_info": {
+    "timestamp": "20250722_193658",
+    "dataset_name": "final_embeddings",
+    "run_description": "",
+    "config_hash": "f0d351",
+    "mode": "cpu_single"
+  },
+  "data_config": {
+    "embeddings_file": "final_embeddings.npz",
+    "metadata_file": "data/final_embeddings_metadata.csv",
+    "labels_file": "data/clean_patients_final.csv"
+  },
+  "training_config": {
+    "use_cross_validation": false,
+    "n_folds": 5,
+    "random_state": 42,
+    "n_jobs": 10,
+    "batch_size": 5
+  },
+  "gpu_config": {
+    "device_type": "cpu",
+    "pytorch_device": "cpu",
+    "xgboost_tree_method": "hist",
+    "gpu_memory_fraction": 0.8
+  },
+  "audio_config": {
+    "sample_rate": 16000,
+    "clip_duration": 2,
+    "clip_overlap_percent": 10,
+    "silence_threshold_db": -50
+  },
+  "system_info": {
+    "device_type": "cpu",
+    "platform": "macOS-15.3.2-arm64-arm-64bit",
+    "cpu_count": 10
+  }
+}

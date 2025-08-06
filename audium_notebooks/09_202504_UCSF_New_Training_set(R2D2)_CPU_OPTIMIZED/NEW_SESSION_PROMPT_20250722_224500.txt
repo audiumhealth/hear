@@ -1,0 +1,85 @@
+NEW SESSION PROMPT FOR WHO COMPLIANCE IMPLEMENTATION
+=====================================================
+Implement WHO compliance improvements for TB detection pipeline to achieve ≥90% sensitivity and ≥70% specificity.
+
+CONTEXT:
+- Working directory: /Users/abelvillcaroque/git/github/audiumhealth/hear/audium_notebooks/09_202504_UCSF_New_Training_set(R2D2)_CPU_OPTIMIZED
+- Current pipeline: GPU-optimized HeAR embeddings with 8 ML models
+- Status: Baseline performance established, need WHO compliance improvements
+- Repository: All code committed and ready for enhancement
+
+IMMEDIATE GOALS:
+1. Implement threshold optimization for WHO compliance (quick win)
+2. Add WHO-optimized loss function to GPU MLP training  
+3. Create ensemble methods with sensitivity weighting
+4. Test and validate improvements against baseline
+
+KEY FILES TO FOCUS ON:
+- 03_tb_detection_gpu_optimized.py (main pipeline)
+- config_gpu.py (configuration)
+- WHO_Compliance_Improvement_Recommendations.txt (implementation guide)
+
+EXPECTED OUTCOMES:
+- At least one model achieving WHO standards
+- Performance comparison before/after improvements
+- Production-ready WHO-compliant pipeline
+
+Start with threshold optimization as it provides immediate sensitivity gains with minimal implementation effort.
+
+ADDITIONAL CONTEXT FOR REFERENCE:
+=================================
+
+CURRENT PIPELINE STATUS:
+- GPU acceleration working (Apple M1 Max with MPS)
+- PyTorch neural networks on GPU
+- XGBoost models with CPU fallback
+- Cross-validation support implemented
+- Complete visualization pipeline working
+- Enhanced naming and reproducibility features
+
+BASELINE PERFORMANCE TYPICAL RANGE:
+- Sensitivity: ~60-80% (needs improvement for WHO compliance)
+- Specificity: ~70-90% (typically meets WHO standards)
+- WHO compliance: 0-30% of models meet both targets
+
+IMPLEMENTATION PRIORITY ORDER:
+1. Threshold optimization (immediate gain, low effort)
+2. WHO-optimized loss function (medium gain, medium effort)
+3. Ensemble methods (high gain, medium effort)
+4. Advanced techniques per recommendations document
+
+VALIDATION APPROACH:
+- Run baseline with current pipeline
+- Implement improvements incrementally
+- Compare before/after performance
+- Ensure at least one WHO-compliant model
+
+FILES AVAILABLE IN REPOSITORY:
+- Complete GPU pipeline implementation
+- Comprehensive WHO improvement recommendations (48-page guide)
+- Getting started guide for team collaboration
+- Data validation and embedding generation scripts
+
+COST OPTIMIZATION NOTES:
+- Focus on specific files rather than exploring entire codebase
+- Use targeted implementation approach
+- Leverage existing documentation and recommendations
+- Implement and test incrementally
+
+EXPECTED TIMELINE:
+- Session 1: Threshold optimization + baseline comparison
+- Session 2: Loss function implementation + testing
+- Session 3: Ensemble methods + final validation
+- Total: 3-4 focused sessions to achieve WHO compliance
+
+REPOSITORY STATE:
+- All pipeline code committed and pushed
+- No outstanding changes
+- Ready for enhancement work
+- Team collaboration documentation complete
+
+Additional thoughts:
+- Make sure that all the files that are generated can be easily traceable by adding relevant naming convention. 
+- Also, I want a master file (if it doesn't exist already) that explains the inputs and outputs of the sessions along with the results of each sessio
+- I also want to know how long it takes to analyze these data
+- Make sure that you generate all the plots that were proposed in the earlier files to compare. Find a way to compare with the current baseline. 

@@ -1,0 +1,28 @@
+TB DETECTION ANALYSIS - EXECUTIVE SUMMARY
+==================================================
+
+Analysis Date: 2025-07-18 12:30:31
+
+DATASET SUMMARY
+--------------------
+Total Patients: 1
+TB Positive: 0
+TB Negative: 1
+
+MODELS ANALYZED
+--------------------
+Number of Models: 10
+Models: Decision Tree, Extra Trees, Gradient Boosting, KNN, LDA, Logistic Regression, MLP, Naive Bayes, Random Forest, SVM
+Aggregation Strategies: Any Positive, Majority Vote, Threshold (30%)
+
+WHO COMPLIANCE SUMMARY
+-------------------------
+Total Model-Strategy Combinations: 30
+WHO Compliant: 0
+WHO Compliance Rate: 0.0%
+
+PERFORMANCE HIGHLIGHTS
+----------------------
+Highest Sensitivity: 0.000 (Random Forest_Any Positive)
+Highest Specificity: 0.000 (Random Forest_Any Positive)
+Highest ROC AUC: 0.000 (Random Forest_Any Positive)

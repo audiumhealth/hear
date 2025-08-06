@@ -1,0 +1,20 @@
+CPU-OPTIMIZED TB DETECTION ANALYSIS - EXECUTIVE SUMMARY
+============================================================
+
+Analysis Date: 2025-07-21 13:38:44
+Configuration: final_embeddings.npz, single 80/20 train-test split
+CPU Cores Used: 10
+
+PERFORMANCE SUMMARY
+------------------------------
+Total Models Trained: 10
+WHO Compliant Models: 6
+WHO Compliance Rate: 60.0%
+
+TOP PERFORMING MODELS
+------------------------------
+• Naive Bayes: WHO=1.153, Sens=0.846, Spec=0.614, ✅
+• LDA: WHO=0.954, Sens=0.538, Spec=0.831, ✅
+• MLP: WHO=0.859, Sens=0.462, Spec=0.795, ✅
+• Logistic Regression: WHO=0.815, Sens=0.423, Spec=0.783, ✅
+• Gradient Boosting: WHO=0.806, Sens=0.385, Spec=0.843, ✅

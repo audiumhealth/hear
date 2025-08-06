@@ -1,0 +1,26 @@
+CPU-OPTIMIZED TB DETECTION CROSS-VALIDATION ANALYSIS - EXECUTIVE SUMMARY
+======================================================================
+
+Analysis Date: 2025-07-21 13:33:23
+Configuration: final_embeddings.npz, 3-fold cross-validation
+CPU Cores Used: 10
+
+CROSS-VALIDATION SUMMARY
+-----------------------------------
+Total Models Evaluated: 10
+Total Folds per Model: 3
+Total Evaluations: 30
+
+WHO COMPLIANCE SUMMARY
+------------------------------
+Total Fold Evaluations: 30
+WHO Compliant Evaluations: 12
+Overall WHO Compliance Rate: 40.0%
+
+TOP PERFORMING MODELS (by mean WHO score)
+---------------------------------------------
+• Naive Bayes: WHO=1.060±0.039, Sens=0.726±0.030, Spec=0.667±0.065, Compliance: 3/3 folds (100.0%)
+• Decision Tree: WHO=0.845±0.025, Sens=0.453±0.017, Spec=0.785±0.024, Compliance: 3/3 folds (100.0%)
+• MLP: WHO=0.845±0.043, Sens=0.407±0.062, Spec=0.877±0.043, Compliance: 2/3 folds (66.7%)
+• LDA: WHO=0.818±0.044, Sens=0.375±0.052, Spec=0.886±0.024, Compliance: 2/3 folds (66.7%)
+• Logistic Regression: WHO=0.806±0.033, Sens=0.367±0.048, Spec=0.877±0.043, Compliance: 1/3 folds (33.3%)

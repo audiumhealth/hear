@@ -1,0 +1,38 @@
+{
+  "run_info": {
+    "timestamp": "20250724_030224",
+    "dataset_name": "final_embeddings",
+    "run_description": "Sensitivity-weighted ensemble: NB+LR+WHO-MLP+XGB for WHO compliance breakthrough",
+    "config_hash": "2721ee",
+    "mode": "gpu_cv5fold"
+  },
+  "data_config": {
+    "embeddings_file": "data/final_embeddings.npz",
+    "metadata_file": "data/data/final_embeddings_metadata.csv",
+    "labels_file": "data/clean_patients_final.csv"
+  },
+  "training_config": {
+    "use_cross_validation": true,
+    "n_folds": 5,
+    "random_state": 42,
+    "n_jobs": 10,
+    "batch_size": 5
+  },
+  "gpu_config": {
+    "device_type": "mps_pytorch_only",
+    "pytorch_device": "mps",
+    "xgboost_tree_method": "hist",
+    "gpu_memory_fraction": 0.8
+  },
+  "audio_config": {
+    "sample_rate": 16000,
+    "clip_duration": 2,
+    "clip_overlap_percent": 10,
+    "silence_threshold_db": -50
+  },
+  "system_info": {
+    "device_type": "mps_pytorch_only",
+    "platform": "macOS-15.3.2-arm64-arm-64bit",
+    "cpu_count": 10
+  }
+}
