@@ -1,0 +1,28 @@
+{
+  "run_info": {
+    "timestamp": "20250805_182025",
+    "run_description": "leave_one_out_validation",
+    "run_type": "leave_one_out_validation",
+    "config_hash": "11255f"
+  },
+  "data_config": {
+    "training_patients_file": "data/training_patients_leave_one_out.csv",
+    "test_patients_file": "data/test_patients_leave_one_out.csv",
+    "embeddings_file": "data/final_embeddings.npz",
+    "metadata_file": "data/final_embeddings_metadata.csv"
+  },
+  "training_config": {
+    "use_cross_validation": true,
+    "n_folds": 5,
+    "random_state": 42,
+    "n_jobs": 10,
+    "who_optimization": true,
+    "who_sensitivity_target": 0.9,
+    "who_specificity_target": 0.7
+  },
+  "system_info": {
+    "cpu_count": 10,
+    "pytorch_available": true,
+    "xgboost_available": true
+  }
+}

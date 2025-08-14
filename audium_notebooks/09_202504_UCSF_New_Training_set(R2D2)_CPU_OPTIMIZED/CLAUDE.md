@@ -11,6 +11,45 @@ This is a specialized TB (tuberculosis) detection pipeline built on Google's Hea
 ### Default Python Virtual Environment
 - By default, use this environment: `/Users/abelvillcaroque/python/venvs/v_audium_hear`
 
+## Recent Updates (August 2025)
+
+### Critical Fixes and Enhancements
+1. **WHO Score Threshold Correction**: Updated from 0.8 to 1.25 across all pipeline files for clinical accuracy
+2. **Performance Dashboard Implementation**: Added essential 6-plot performance dashboard to enhanced leave-one-out pipeline
+3. **Enhanced Visualization Pipeline**: Complete ROC/PRC curves with confidence bands and data export capabilities
+4. **Multi-Seed Validation**: Implemented robust validation across multiple random seeds (42, 123, 456)
+
+### Leave-One-Out Validation Pipeline
+- **Script**: `04_leave_one_out_validation.py` 
+- **Enhanced Modules**: `leave_one_out_visualizations.py`, `leave_one_out_data_export.py`
+- **Key Features**:
+  - 481 training patients with 5-fold CV + 61 reserved test patients
+  - Performance dashboard with CV confidence intervals (Sensitivity/Specificity/AUC)
+  - Enhanced ROC/PRC curves with confidence bands
+  - WHO compliance analysis with corrected 1.25 threshold
+  - 6 CSV data export files for regulatory compliance
+  - Multi-country validation capability
+  - Multi-seed validation for robustness testing
+
+### Performance Dashboard Structure
+```python
+# Top row: CV metrics with confidence intervals
+- CV Sensitivity (Mean ± Std)
+- CV Specificity (Mean ± Std) 
+- CV ROC AUC (Mean ± Std)
+
+# Bottom row: Test metrics (single evaluation)
+- Test Sensitivity
+- Test Specificity
+- Test ROC AUC
+```
+
+### WHO Compliance Framework (Corrected)
+- **Formula**: `WHO Score = Sensitivity + 0.5 × Specificity`
+- **Clinical Threshold**: ≥1.25 (corrected from 0.8)
+- **Targets**: ≥90% sensitivity, ≥70% specificity
+- **Mathematical Verification**: 0.90 + 0.5 × 0.70 = 1.25
+
 ## Core Architecture
 
 ### Pipeline Stages
@@ -124,8 +163,9 @@ python investigate_outliers.py
 
 ### Clinical Requirements (WHO Standards)
 - **Primary Target**: ≥90% sensitivity, ≥70% specificity
-- **Current Performance**: ~60-80% sensitivity, ~70-90% specificity
-- **WHO Compliance Rate**: 0-30% of models typically achieve both targets
+- **Multi-Seed Results**: Test sensitivity 82.4%-88.2%, specificity 72.7%-77.3%
+- **Performance Ceiling**: Consistent 88% sensitivity barrier across random seeds
+- **WHO Compliance Rate**: 0% of models meet clinical deployment criteria (seeds 42, 123, 456)
 
 ### Evaluation Methodology
 - **Patient-level splits**: Prevents data leakage (all clips from a patient in same split)

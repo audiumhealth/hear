@@ -857,6 +857,106 @@ def save_results_matching_baseline_structure(cv_results, test_results, data_tupl
         'comparison_path': comparison_path
     }
 
+def create_performance_dashboards(cv_results, test_results, config):
+    """Create simplified performance dashboard with essential metrics only"""
+    
+    print(f"📊 Creating performance dashboard...")
+    
+    # Set style
+    plt.style.use('default')
+    sns.set_palette("husl")
+    
+    model_names = [r['model_name'] for r in cv_results]
+    
+    # Create single dashboard with 6 essential plots
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    fig.suptitle('Leave-One-Out Validation Performance Dashboard', fontsize=16, fontweight='bold')
+    
+    # TOP ROW: Cross-Validation Results with Confidence Intervals
+    
+    # CV Sensitivity
+    ax = axes[0, 0]
+    sens_means = [r['mean_results']['optimal_sensitivity_mean'] for r in cv_results]
+    sens_stds = [r['mean_results']['optimal_sensitivity_std'] for r in cv_results]
+    bars = ax.bar(model_names, sens_means, yerr=sens_stds, color='lightblue', alpha=0.7, capsize=5)
+    ax.axhline(y=config.who_sensitivity_target, color='red', linestyle='--', alpha=0.7, label=f'WHO Target ≥{config.who_sensitivity_target*100:.0f}%')
+    ax.set_title('CV Sensitivity (Mean ± Std)', fontweight='bold')
+    ax.set_ylabel('Sensitivity')
+    ax.set_xticklabels(model_names, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, 1.1)
+    
+    # CV Specificity
+    ax = axes[0, 1]
+    spec_means = [r['mean_results']['optimal_specificity_mean'] for r in cv_results]
+    spec_stds = [r['mean_results']['optimal_specificity_std'] for r in cv_results]
+    bars = ax.bar(model_names, spec_means, yerr=spec_stds, color='lightgreen', alpha=0.7, capsize=5)
+    ax.axhline(y=config.who_specificity_target, color='red', linestyle='--', alpha=0.7, label=f'WHO Target ≥{config.who_specificity_target*100:.0f}%')
+    ax.set_title('CV Specificity (Mean ± Std)', fontweight='bold')
+    ax.set_ylabel('Specificity')
+    ax.set_xticklabels(model_names, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, 1.1)
+    
+    # CV ROC AUC
+    ax = axes[0, 2]
+    roc_means = [r['mean_results']['roc_auc_mean'] for r in cv_results]
+    roc_stds = [r['mean_results']['roc_auc_std'] for r in cv_results]
+    bars = ax.bar(model_names, roc_means, yerr=roc_stds, color='lightyellow', alpha=0.7, capsize=5)
+    ax.set_title('CV ROC AUC (Mean ± Std)', fontweight='bold')
+    ax.set_ylabel('ROC AUC')
+    ax.set_xticklabels(model_names, rotation=45, ha='right')
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, 1.1)
+    
+    # BOTTOM ROW: Leave-One-Out Test Results (no error bars - single evaluation)
+    
+    # Test Sensitivity
+    ax = axes[1, 0]
+    test_sens = [r['test_sensitivity'] for r in test_results]
+    bars = ax.bar(model_names, test_sens, color='lightblue', alpha=0.7)
+    ax.axhline(y=config.who_sensitivity_target, color='red', linestyle='--', alpha=0.7, label=f'WHO Target ≥{config.who_sensitivity_target*100:.0f}%')
+    ax.set_title('Test Sensitivity', fontweight='bold')
+    ax.set_ylabel('Sensitivity')
+    ax.set_xticklabels(model_names, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, 1.1)
+    
+    # Test Specificity
+    ax = axes[1, 1]
+    test_spec = [r['test_specificity'] for r in test_results]
+    bars = ax.bar(model_names, test_spec, color='lightgreen', alpha=0.7)
+    ax.axhline(y=config.who_specificity_target, color='red', linestyle='--', alpha=0.7, label=f'WHO Target ≥{config.who_specificity_target*100:.0f}%')
+    ax.set_title('Test Specificity', fontweight='bold')
+    ax.set_ylabel('Specificity')
+    ax.set_xticklabels(model_names, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, 1.1)
+    
+    # Test ROC AUC
+    ax = axes[1, 2]
+    test_roc = [r['test_roc_auc'] for r in test_results]
+    bars = ax.bar(model_names, test_roc, color='lightyellow', alpha=0.7)
+    ax.set_title('Test ROC AUC', fontweight='bold')
+    ax.set_ylabel('ROC AUC')
+    ax.set_xticklabels(model_names, rotation=45, ha='right')
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, 1.1)
+    
+    plt.tight_layout()
+    dashboard_file = config.get_output_filename('performance_dashboard.png')
+    dashboard_path = os.path.join(config.results_dir, dashboard_file)
+    plt.savefig(dashboard_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"✅ Performance dashboard created: {os.path.basename(dashboard_file)}")
+    
+    return [dashboard_path]
+
 def create_visualizations_matching_baseline(cv_results, test_results, data_tuple, config):
     """Create comprehensive visualizations with enhanced curve analysis"""
     
@@ -878,6 +978,10 @@ def create_visualizations_matching_baseline(cv_results, test_results, data_tuple
             enhanced_test_results[model_name] = test_results[i]
         
         try:
+            # 0. CRITICAL: Create performance dashboards first (matching baseline expectations)
+            performance_dashboards = create_performance_dashboards(cv_results, test_results, config)
+            visualization_paths.extend(performance_dashboards)
+            
             # 1. ROC Curves Analysis
             create_comprehensive_roc_analysis(enhanced_cv_results, enhanced_test_results, config)
             roc_file = config.get_output_filename("roc_curves.png")
@@ -909,7 +1013,8 @@ def create_visualizations_matching_baseline(cv_results, test_results, data_tuple
             # 7. Create data verification report
             verification_report = create_data_verification_report(exported_files, config)
             
-            print(f"✅ Enhanced visualizations created: {len(visualization_paths)} plots")
+            print(f"✅ Performance dashboard created: {len(performance_dashboards)} chart")
+            print(f"✅ Enhanced visualizations created: {len(visualization_paths) - len(performance_dashboards)} plots")
             print(f"✅ Data export completed: {len(exported_files)} CSV files")
             
         except Exception as e:
@@ -1174,18 +1279,8 @@ def generate_executive_summary(cv_results, test_results, file_paths, config):
     return summary_path
 
 def main():
-    parser = argparse.ArgumentParser(description='Leave-One-Out TB Detection Validation')
-    parser.add_argument('--test_patients', type=str,
-                       default='patient_test_dataset_leave_one_out/Audium_Health_patient_id_test_split.csv',
-                       help='Path to reserved test patients file')
-    parser.add_argument('--run_description', type=str,
-                       default='leave_one_out_validation',
-                       help='Description for this run')
-    parser.add_argument('--cross_validation', action='store_true', default=True,
-                       help='Enable cross-validation')
-    parser.add_argument('--n_folds', type=int, default=5,
-                       help='Number of cross-validation folds')
-    
+    # Use the proper parser from config_leave_one_out.py which includes --random_state
+    parser = get_leave_one_out_parser()
     args = parser.parse_args()
     
     print("🚀 Leave-One-Out TB Detection Validation Pipeline")

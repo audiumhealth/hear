@@ -309,11 +309,19 @@ python 03_tb_detection_full_analysis.py --labels data/clean_patients_fixed.csv
 - ✅ **Multi-Country Validation**: 61 test patients from 5 countries
 - ✅ **17 Deliverables**: Complete pipeline output for clinical deployment
 
+### **Multi-Seed Validation Analysis** 🆕
+- ✅ **Robustness Testing**: Completed validation with seeds 42, 123, 456
+- ✅ **Performance Range**: Test sensitivity 82.4%-88.2%, specificity 72.7%-77.3%
+- ✅ **Model Consistency**: Logistic Regression optimal across all test sets
+- ✅ **Clinical Assessment**: Consistent finding of 88% sensitivity ceiling across seeds
+- ✅ **Deployment Status**: ❌ Not WHO-compliant (0/3 runs meet ≥90% sensitivity target)
+
 ### **Pipeline Improvements**
 - ✅ **Corrected Compliance**: All models now evaluated against accurate WHO standards
 - ✅ **Clinical Readiness**: Independent test dataset for deployment validation
 - ✅ **Regulatory Support**: Complete data traceability and verification reports
 - ✅ **Enhanced Tracking**: Updated baseline pipeline runs with corrected metrics
+- ✅ **Validation Robustness**: Multi-seed experiments confirm consistent performance limitations
 
 ---
 

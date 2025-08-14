@@ -1,0 +1,41 @@
+{
+  "run_info": {
+    "timestamp": "20250805_181626",
+    "dataset_name": "final_embeddings",
+    "run_description": "leave_one_out_validation",
+    "config_hash": "20335e",
+    "mode": "leave_one_out_cv5fold",
+    "run_type": "leave_one_out_validation"
+  },
+  "data_config": {
+    "training_patients_file": "data/training_patients_leave_one_out.csv",
+    "test_patients_file": "data/test_patients_leave_one_out.csv",
+    "embeddings_file": "data/final_embeddings.npz",
+    "metadata_file": "data/final_embeddings_metadata.csv"
+  },
+  "training_config": {
+    "use_cross_validation": true,
+    "n_folds": 5,
+    "random_state": 42,
+    "n_jobs": 10,
+    "batch_size": 5
+  },
+  "who_optimization_config": {
+    "who_optimization": true,
+    "who_sensitivity_target": 0.9,
+    "who_specificity_target": 0.7,
+    "who_threshold_optimization": true,
+    "sensitivity_weight": 8.0
+  },
+  "audio_config": {
+    "sample_rate": 16000,
+    "clip_duration": 2,
+    "clip_overlap_percent": 10,
+    "silence_threshold_db": -50
+  },
+  "system_info": {
+    "cpu_count": 10,
+    "device_type": "hybrid_cpu_gpu",
+    "pipeline_type": "leave_one_out_validation"
+  }
+}
